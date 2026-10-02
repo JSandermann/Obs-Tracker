@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Observation Tracker</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--ink:#1f2530;--mute:#666d7a;--line:#e2e0d8;--acc:#1f4e79;--accI:#fff;
+--c4:#5b3fa0;--c4b:#ece6f8;--c3:#1f7a4d;--c3b:#e1f2e8;--c2:#2a5f9e;--c2b:#e3edf8;--c1:#b3261e;--c1b:#fbe6e4;--warn:#9a5b00;--warnb:#fdf0d9;
+padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#15181d;--card:#1e2229;--ink:#e9ebef;--mute:#9aa1ad;--line:#333944;--acc:#7fb0e6;--accI:#10161d;
+--c4:#c1a9f5;--c4b:#2b2242;--c3:#74d2a0;--c3b:#16301f;--c2:#8fb8ea;--c2b:#182a40;--c1:#f19a93;--c1b:#3d1c1a;--warn:#f0c070;--warnb:#3a2c10}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:960px;margin:0 auto;padding:16px}
+header{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;margin-bottom:12px}
+h1{font:700 22px/1.2 Georgia,serif;margin:0}.sub{color:var(--mute);font-size:13px}
+.live{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--c3);margin-right:5px}
+.switch{font:700 20px/1.2 Georgia,serif;border:1px solid var(--line);border-radius:10px;padding:6px 10px;width:auto;max-width:100%;background:var(--card)}
+.hact{display:flex;gap:8px;flex-wrap:wrap}
+nav{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:14px;overflow-x:auto}
+nav button{background:none;border:0;border-bottom:3px solid transparent;padding:10px 14px;font-weight:600;font-size:14px;font-family:inherit;color:var(--mute);cursor:pointer;white-space:nowrap}
+nav button.on{color:var(--acc);border-color:var(--acc)}
+button,select,input,textarea{font:inherit;color:inherit}
+.btn{background:var(--acc);color:var(--accI);border:0;border-radius:8px;padding:8px 14px;font-weight:600;cursor:pointer}
+.btn.ghost{background:none;color:var(--ink);border:1px solid var(--line)}.btn.danger{background:var(--c1);color:#fff;border-color:var(--c1)}
+.btn:disabled{opacity:.5;cursor:default}
+input,select,textarea{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+textarea{min-height:70px;resize:vertical}label{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center}.bar>*{width:auto;flex:1 1 140px}.bar .btn{flex:0 0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+.card.click{cursor:pointer}.card.click:hover{border-color:var(--acc)}
+.row{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between}
+.tag{display:inline-block;font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--c2b);color:var(--c2)}
+.tag.warn{background:var(--warnb);color:var(--warn)}.tag.bad{background:var(--c1b);color:var(--c1)}.tag.ok{background:var(--c3b);color:var(--c3)}.tag.ex{background:var(--c4b);color:var(--c4)}
+.tag.off{background:var(--line);color:var(--mute)}
+.strip{display:flex;gap:3px}.strip i{width:18px;height:8px;border-radius:2px;display:block}
+.l4{background:var(--c4)}.l3{background:var(--c3)}.l2{background:var(--c2)}.l1{background:var(--c1)}
+.mute{color:var(--mute)}.small{font-size:13px}.t{font-weight:700}
+.banner{background:var(--warnb);color:var(--warn);padding:8px 12px;border-radius:8px;margin-bottom:12px;font-size:13px}
+.err{color:var(--c1);font-size:13px;margin-top:8px;min-height:1em}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:16px;z-index:9}
+.modal{background:var(--bg);border-radius:14px;max-width:680px;width:100%;padding:16px;margin:auto}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:520px){.two{grid-template-columns:1fr}}
+.rt{margin:8px 0}.opts{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}@media(max-width:560px){.opts{grid-template-columns:1fr 1fr}}
+.opt{border:1.5px solid var(--line);background:var(--card);border-radius:8px;padding:6px;font-size:12px;cursor:pointer;text-align:center}
+.opt.s4{background:var(--c4b);border-color:var(--c4);color:var(--c4);font-weight:700}.opt.s3{background:var(--c3b);border-color:var(--c3);color:var(--c3);font-weight:700}
+.opt.s2{background:var(--c2b);border-color:var(--c2);color:var(--c2);font-weight:700}.opt.s1{background:var(--c1b);border-color:var(--c1);color:var(--c1);font-weight:700}
+.rl{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 14px;border-radius:8px;z-index:20;font-size:13px;max-width:90vw}
+h2{font-size:15px;margin:18px 0 8px}
+.login{max-width:380px;margin:8vh auto 0}
+.login h1{margin-bottom:4px}
+.checks{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.checks label{display:flex;gap:6px;align-items:center;margin:0;font-weight:500}
+.checks input{width:auto}
+.linkish{background:none;border:0;color:var(--acc);cursor:pointer;padding:0;font-weight:600;text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header id="hdr" hidden><div><div id="title"></div><div class="sub"><span class="live"></span>Shared and live · <span id="who"></span></div></div><div class="hact" id="hact"></div></header>
+<nav id="nav" hidden></nav>
+<main id="app"><p class="mute">Loading…</p></main>
+</div>
+<div id="modal"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+const TRACKERS={hof:"HOF Observation Tracker",slt:"SLT Teacher Observation Tracker"};
+const EMAIL_DOMAIN="staff.obs-tracker.app";
+const TYPES=["Lesson observation","Booklook","Learning walk"];
+const ITEMS=[["objective","Lesson objective"],["sequence","Clear curriculum sequence showing progress in knowledge or skill"],["marking","Evidence of marking and feedback"],["adapt","Adapt teaching appropriately"],["literacy","Reading and literacy promoted"]];
+const LV=[["exceptional","Exceptional standard",4],["strong","Strong standard",3],["expected","Expected standard",2],["attention","Needs attention, urgent improvement",1]];
+const SC=Object.fromEntries(LV.map(l=>[l[0],l[2]]));const LB=Object.fromEntries(LV.map(l=>[l[0],l[1]]));
+
+let sb=null,me=null,tracker="hof",T=[],TB=[],O=[],B=[],S=[],view="obs",F={type:"",teacher:"",q:""},chan=null,loadSeq=0,loadTimer=null;
+
+const $=s=>document.querySelector(s);
+const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+const fmt=s=>{if(!s)return"";const d=new Date(s+"T00:00:00");return isNaN(d)?s:d.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})};
+function h(t,a,...c){const e=document.createElement(t);for(const k in a||{}){const v=a[k];if(k==="class")e.className=v;else if(k.startsWith("on"))e[k]=v;else if(k==="value")e.value=v==null?"":v;else if(k==="checked"||k==="disabled"||k==="selected")e[k]=!!v;else if(v!==false&&v!=null)e.setAttribute(k,v===true?"":v)}
+c.flat(9).forEach(x=>{if(x==null||x===false)return;e.append(x.nodeType?x:document.createTextNode(x))});return e}
+function toast(m){document.querySelectorAll(".toast").forEach(x=>x.remove());const t=h("div",{class:"toast"},m);document.body.append(t);setTimeout(()=>t.remove(),3800)}
+const U=s=>(s||"").toUpperCase();
+const myTrackers=()=>me?["hof","slt"].filter(k=>k==="hof"?me.can_hof:me.can_slt):[];
+
+// Every database write goes through here so errors are always shown.
+async function guard(p){try{const r=await p;if(r&&r.error)throw r.error;return true}catch(e){const m=(e&&e.message)||"try again";
+toast(/row-level security|permission|42501/i.test(m+(e&&e.code))?"You don't have permission to change this.":/foreign key|23503/i.test(m+(e&&e.code))?"Can't delete: this teacher still has observations (including any in the Bin).":"Couldn't save: "+m);return false}}
+
+// ---------- data mapping ----------
+const fromObs=r=>({id:r.id,type:r.type,date:r.date,teacherId:r.teacher_id,cls:r.cls,topic:r.topic,objective:r.objective,notes:r.notes,ratings:r.ratings||{},
+actionText:r.action_text,actionDue:r.action_due||"",actionDone:r.action_done,observerLabel:r.observer_label,deleted:r.deleted});
+const tName=id=>(T.concat(TB).find(t=>t.id===id)||{}).name||"Unknown teacher";
+const oName=o=>o.observerLabel||"A colleague";
+const avg=o=>{const v=Object.values(o.ratings||{}).map(x=>SC[x]).filter(Boolean);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null};
+const strip=o=>h("div",{class:"strip"},ITEMS.map(([k,l])=>{const r=(o.ratings||{})[k];return h("i",{class:r?"l"+SC[r]:"",style:r?null:"background:var(--line)",title:l+": "+(r?LB[r]:"not rated")})}));
+function actTag(o){if(!o.actionText)return null;if(o.actionDone)return h("span",{class:"tag ok"},"Action done");
+if(o.actionDue&&o.actionDue<today())return h("span",{class:"tag bad"},"Overdue · "+fmt(o.actionDue));return h("span",{class:"tag warn"},"Due "+(fmt(o.actionDue)||"no date"))}
+
+// ---------- loading ----------
+async function load(){const seq=++loadSeq;
+const [t,o]=await Promise.all([sb.from("teachers").select("*").eq("tracker",tracker),sb.from("observations").select("*").eq("tracker",tracker)]);
+if(seq!==loadSeq)return;
+if(t.error||o.error){toast("Couldn't load: "+((t.error||o.error).message));return}
+T=t.data.filter(x=>!x.deleted);TB=t.data.filter(x=>x.deleted);
+const all=o.data.map(fromObs);O=all.filter(x=>!x.deleted);B=all.filter(x=>x.deleted);
+if(me.is_admin){const s=await sb.from("staff").select("*").order("username");if(seq!==loadSeq)return;if(!s.error)S=s.data}
+draw()}
+const soon=()=>{clearTimeout(loadTimer);loadTimer=setTimeout(load,300)};
+function subscribe(){if(chan)sb.removeChannel(chan);
+chan=sb.channel("obs-"+tracker).on("postgres_changes",{event:"*",schema:"public",table:"teachers",filter:"tracker=eq."+tracker},soon)
+.on("postgres_changes",{event:"*",schema:"public",table:"observations",filter:"tracker=eq."+tracker},soon).subscribe()}
+async function switchTracker(k){tracker=k;try{localStorage.setItem("obsTracker",k)}catch(e){}F={type:"",teacher:"",q:""};if(view==="staff"&&!me.is_admin)view="obs";
+T=[];TB=[];O=[];B=[];draw();subscribe();await load()}
+
+// ---------- layout ----------
+function drawHeader(){const ks=myTrackers();$("#hdr").hidden=false;$("#nav").hidden=false;
+$("#title").replaceChildren(ks.length>1?h("select",{class:"switch","aria-label":"Choose tracker",onchange:e=>switchTracker(e.target.value)},ks.map(k=>h("option",{value:k,selected:k===tracker},TRACKERS[k]))):h("h1",null,TRACKERS[tracker]));
+$("#who").textContent="Signed in as "+(me.display_name||U(me.username));
+$("#hact").replaceChildren(h("button",{class:"btn ghost",onclick:exportCsv},"Export CSV"),h("button",{class:"btn ghost",onclick:()=>sb.auth.signOut()},"Sign out"));
+document.title=TRACKERS[tracker]}
+function draw(){if(!me)return;drawHeader();
+const tabs=[["obs","Observations"],["teachers","Teachers"],["actions","Actions"],["bin","Bin ("+(B.length+TB.length)+")"]].concat(me.is_admin?[["staff","Staff & access"]]:[]);
+$("#nav").replaceChildren(...tabs.map(([k,l])=>h("button",{class:view===k?"on":"",onclick:()=>{view=k;draw()}},l)));
+$("#app").replaceChildren(view==="obs"?vObs():view==="teachers"?vTeachers():view==="bin"?vBin():view==="staff"?vStaff():vActions())}
+
+function vObs(){const w=h("div");const sel=(k,opts,ph)=>h("select",{onchange:e=>{F[k]=e.target.value;draw()}},h("option",{value:""},ph),opts.map(([v,l])=>h("option",{value:v,selected:F[k]===v},l)));
+const q=h("input",{placeholder:"Search class, topic, notes…",value:F.q,oninput:e=>{F.q=e.target.value;clearTimeout(q._t);q._t=setTimeout(()=>{const p=e.target.selectionStart;draw();const n=$("#app input");if(n){n.focus();n.setSelectionRange(p,p)}},250)}});
+w.append(h("div",{class:"bar"},q,sel("type",TYPES.map(t=>[t,t]),"All types"),sel("teacher",T.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(t=>[t.id,t.name]),"All teachers"),h("button",{class:"btn",onclick:()=>openForm()},"+ New observation")));
+const ql=F.q.toLowerCase();
+const list=O.filter(o=>(!F.type||o.type===F.type)&&(!F.teacher||o.teacherId===F.teacher)&&(!ql||[o.cls,o.topic,o.notes,o.objective,tName(o.teacherId),o.actionText,oName(o)].join(" ").toLowerCase().includes(ql))).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+if(!list.length)w.append(h("p",{class:"mute"},O.length?"No observations match those filters.":"No observations yet. Add a teacher, then record the first observation."));
+list.forEach(o=>w.append(h("div",{class:"card click",onclick:()=>openDetail(o.id)},
+h("div",{class:"row"},h("div",null,h("span",{class:"t"},tName(o.teacherId)),[o.cls,o.topic].some(Boolean)&&h("span",{class:"mute"}," · "+[o.cls,o.topic].filter(Boolean).join(" · "))),h("span",{class:"tag"},o.type)),
+h("div",{class:"row small mute",style:"margin-top:6px"},h("span",null,fmt(o.date)+" · "+oName(o)),strip(o)),
+o.actionText&&h("div",{class:"row small",style:"margin-top:6px"},h("span",null,"Action: "+o.actionText),actTag(o)))));
+return w}
+
+function vTeachers(){const w=h("div");
+const n=h("input",{placeholder:"Teacher name"}),s=h("input",{placeholder:"Subject / phase (optional)"});
+w.append(h("div",{class:"bar"},n,s,h("button",{class:"btn",onclick:async()=>{if(!n.value.trim())return;if(await guard(sb.from("teachers").insert({tracker,name:n.value.trim(),subject:s.value.trim()}))){n.value="";s.value="";load()}}},"Add teacher")));
+const ta=h("textarea",{placeholder:"Paste several teacher names, one per line (optional subject after a comma)"});
+const other=myTrackers().find(k=>k!==tracker);
+w.append(h("details",{class:"card"},h("summary",{class:"t",style:"cursor:pointer"},"Add several teachers at once"),ta,h("div",{class:"row",style:"margin-top:8px;justify-content:flex-start"},
+h("button",{class:"btn",onclick:async()=>{const have=new Set(T.concat(TB).map(t=>(t.name||"").trim().toLowerCase()));
+const rows=ta.value.split(/\n/).map(x=>x.trim()).filter(Boolean).map(x=>{const i=x.indexOf(",");return i<0?[x,""]:[x.slice(0,i).trim(),x.slice(i+1).trim()]}).filter(r=>r[0]&&!have.has(r[0].toLowerCase()));
+const seen=new Set();const uniq=rows.filter(r=>{const k=r[0].toLowerCase();if(seen.has(k))return false;seen.add(k);return true});
+if(!uniq.length){toast("No new names to add");return}
+if(await guard(sb.from("teachers").insert(uniq.map(r=>({tracker,name:r[0],subject:r[1]}))))){ta.value="";toast(uniq.length+" teacher"+(uniq.length===1?"":"s")+" added");load()}}},"Add all"),
+other&&h("button",{class:"btn ghost",onclick:async()=>{const r=await sb.from("teachers").select("name,subject").eq("tracker",other).eq("deleted",false);if(r.error){toast("Couldn't read the other list");return}
+const have=new Set(T.concat(TB).map(t=>(t.name||"").trim().toLowerCase()));const add=r.data.filter(x=>!have.has((x.name||"").trim().toLowerCase()));
+if(!add.length){toast("Everyone from the "+U(other)+" list is already here");return}
+if(await guard(sb.from("teachers").insert(add.map(x=>({tracker,name:x.name,subject:x.subject})))))(toast(add.length+" teacher"+(add.length===1?"":"s")+" copied"),load())}},"Copy teacher list from "+U(other)))));
+if(!T.length)w.append(h("p",{class:"mute"},"No teachers yet."));
+const g=h("div",{class:"grid"});T.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).forEach(t=>{const os=O.filter(o=>o.teacherId===t.id).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+const sc=os.map(avg).filter(x=>x!=null);const m=sc.length?sc.reduce((a,b)=>a+b,0)/sc.length:null;const open=os.filter(o=>o.actionText&&!o.actionDone).length;
+const lvl=m==null?null:LV.find(l=>Math.round(m)===l[2]);
+g.append(h("div",{class:"card"},h("div",{class:"t"},t.name),h("div",{class:"small mute"},t.subject||"—"),
+h("div",{class:"small",style:"margin-top:8px"},os.length+" observation"+(os.length===1?"":"s")+(os[0]?" · last "+fmt(os[0].date):"")),
+lvl&&h("div",{class:"small",style:"margin-top:4px"},"Average: ",h("span",{class:"tag "+(lvl[2]===4?"ex":lvl[2]===3?"ok":lvl[2]===1?"bad":"")},lvl[1])),
+open>0&&h("div",{style:"margin-top:6px"},h("span",{class:"tag warn"},open+" open action"+(open===1?"":"s"))),
+h("div",{class:"row",style:"margin-top:10px"},h("button",{class:"btn ghost",onclick:()=>{F={type:"",teacher:t.id,q:""};view="obs";draw()}},"View"),
+!os.length&&confirmBtn("Remove","Confirm remove",async()=>{if(await guard(sb.from("teachers").update({deleted:true,deleted_at:new Date().toISOString()}).eq("id",t.id)))load()}))))});
+w.append(g);return w}
+
+function confirmBtn(label,confirmLabel,fn){return h("button",{class:"btn ghost",onclick:async e=>{const b=e.currentTarget;if(b.dataset.c!=="1"){b.dataset.c="1";b.textContent=confirmLabel;b.classList.add("danger");setTimeout(()=>{if(b.isConnected){b.dataset.c="";b.textContent=label;b.classList.remove("danger")}},4000);return}b.disabled=true;await fn();b.disabled=false}},label)}
+
+function vActions(){const w=h("div");const all=O.filter(o=>o.actionText).sort((a,b)=>(a.actionDue||"9999").localeCompare(b.actionDue||"9999"));
+const sec=(title,arr)=>{if(!arr.length)return;w.append(h("h2",null,title+" ("+arr.length+")"));arr.forEach(o=>w.append(h("div",{class:"card"},h("div",{class:"row"},
+h("label",{style:"display:flex;gap:10px;align-items:flex-start;margin:0;font-weight:400;flex:1"},h("input",{type:"checkbox",style:"width:auto;margin-top:4px",checked:!!o.actionDone,onchange:async e=>{if(await guard(sb.from("observations").update({action_done:e.target.checked}).eq("id",o.id)))load();else e.target.checked=!e.target.checked}}),
+h("span",null,h("span",{class:o.actionDone?"mute":"t",style:o.actionDone?"text-decoration:line-through":""},o.actionText),h("br"),h("span",{class:"small mute"},tName(o.teacherId)+" · "+o.type+" · "+fmt(o.date)+" · by "+oName(o)))),actTag(o)))))};
+if(!all.length)w.append(h("p",{class:"mute"},"No follow-up actions recorded yet."));
+const t=today();sec("Overdue",all.filter(o=>!o.actionDone&&o.actionDue&&o.actionDue<t));sec("Open",all.filter(o=>!o.actionDone&&!(o.actionDue&&o.actionDue<t)));sec("Completed",all.filter(o=>o.actionDone));return w}
+
+function vBin(){const w=h("div");w.append(h("p",{class:"small mute"},"Removed items are hidden from the main lists but kept here. Anyone with access to this tracker can restore them or delete them permanently."));
+if(!B.length&&!TB.length)w.append(h("p",{class:"mute"},"The Bin is empty."));
+TB.forEach(t=>w.append(h("div",{class:"card row"},h("span",null,h("span",{class:"tag"},"Teacher")," ",h("span",{class:"t"},t.name)),h("span",{class:"hact"},
+h("button",{class:"btn ghost",onclick:async()=>{if(await guard(sb.from("teachers").update({deleted:false,deleted_at:null}).eq("id",t.id)))load()}},"Restore"),
+confirmBtn("Delete forever","Confirm",async()=>{if(await guard(sb.from("teachers").delete().eq("id",t.id)))load()})))));
+B.slice().sort((a,b)=>(b.date||"").localeCompare(a.date||"")).forEach(o=>w.append(h("div",{class:"card row"},h("span",null,h("span",{class:"tag"},o.type)," ",h("span",{class:"t"},tName(o.teacherId)),h("span",{class:"small mute"}," · "+fmt(o.date)+" · "+[o.cls,o.topic].filter(Boolean).join(" · "))),h("span",{class:"hact"},
+h("button",{class:"btn ghost",onclick:async()=>{if(await guard(sb.from("observations").update({deleted:false,deleted_at:null}).eq("id",o.id)))load()}},"Restore"),
+confirmBtn("Delete forever","Confirm",async()=>{if(await guard(sb.from("observations").delete().eq("id",o.id)))load()})))));return w}
+
+// ---------- staff & access (admins only) ----------
+function vStaff(){const w=h("div");
+w.append(h("p",{class:"small mute"},"Add a username here, then tell that person to open the site and choose \"First time? Set your password\". Untick a tracker to remove someone's access straight away."));
+const un=h("input",{placeholder:"Username, e.g. BBO"}),dn=h("input",{placeholder:"Name shown on observations (optional)"});
+const ch=(l,v)=>{const i=h("input",{type:"checkbox",checked:v});return [i,h("label",null,i,l)]};
+const [hof,hofL]=ch("HOF",true),[slt,sltL]=ch("SLT",false),[adm,admL]=ch("Admin",false);const err=h("div",{class:"err"});
+w.append(h("div",{class:"card"},h("div",{class:"t"},"Add a member of staff"),h("div",{class:"two"},un,dn),h("div",{class:"checks",style:"margin-top:10px"},hofL,sltL,admL,
+h("button",{class:"btn",onclick:async()=>{const u=un.value.trim().toLowerCase();err.textContent="";
+if(!/^[a-z0-9._-]{2,40}$/.test(u)){err.textContent="Usernames need 2–40 letters or numbers (no spaces).";return}
+if(S.some(s=>s.username===u)){err.textContent="That username already exists.";return}
+if(await guard(sb.from("staff").insert({username:u,display_name:dn.value.trim()||U(u),can_hof:hof.checked,can_slt:slt.checked,is_admin:adm.checked}))){toast(U(u)+" added");load()}}},"Add")),err));
+const tb=h("div");
+S.forEach(s=>{const self=s.user_id===me.user_id;
+const upd=async(patch,el)=>{if(!(await guard(sb.from("staff").update(patch).eq("username",s.username)))){if(el)el.checked=!el.checked}load()};
+const box=(l,k)=>{const i=h("input",{type:"checkbox",checked:s[k],disabled:self&&k==="is_admin",onchange:e=>{const p={};p[k]=e.target.checked;upd(p,e.target)}});return h("label",null,i,l)};
+const nm=h("input",{value:s.display_name,style:"max-width:220px",onchange:e=>upd({display_name:e.target.value.trim()||U(s.username)})});
+tb.append(h("div",{class:"card"},h("div",{class:"row"},h("div",null,h("span",{class:"t"},U(s.username)),self&&h("span",{class:"small mute"}," (you)")," ",
+h("span",{class:"tag "+(s.user_id?"ok":"warn")},s.user_id?"Password set":"Waiting for first login")),nm),
+h("div",{class:"row",style:"margin-top:8px"},h("div",{class:"checks"},box("HOF","can_hof"),box("SLT","can_slt"),box("Admin","is_admin")),
+!self&&h("div",{class:"hact"},s.user_id&&confirmBtn("Reset password","Confirm reset",async()=>{if(await guard(sb.rpc("admin_reset_login",{u:s.username}))){toast(U(s.username)+" can now set a new password");load()}}),
+confirmBtn("Remove","Confirm remove",async()=>{if(await guard(sb.rpc("admin_remove_staff",{u:s.username}))){toast(U(s.username)+" removed");load()}})))))});
+w.append(h("h2",null,"Staff ("+S.length+")"),tb);return w}
+
+// ---------- export ----------
+function csvCell(v){v=v==null?"":String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
+function exportCsv(){const rows=[["Tracker","Type","Date","Teacher","Observer","Class","Topic","Lesson objective as set",...ITEMS.map(i=>i[1]),"Notes","Follow-up action","Action due","Action done","Removed"]];
+O.concat(B).sort((a,b)=>(a.date||"").localeCompare(b.date||"")).forEach(o=>rows.push([U(tracker),o.type,o.date,tName(o.teacherId),oName(o),o.cls,o.topic,o.objective,...ITEMS.map(([k])=>(o.ratings||{})[k]?LB[o.ratings[k]]:""),o.notes,o.actionText,o.actionDue,o.actionText?(o.actionDone?"Yes":"No"):"",o.deleted?"Yes":""]));
+const blob=new Blob(["﻿"+rows.map(r=>r.map(csvCell).join(",")).join("\r\n")],{type:"text/csv;charset=utf-8"});
+const a=h("a",{href:URL.createObjectURL(blob),download:tracker+"-observations-"+today()+".csv"});document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
+
+// ---------- modals ----------
+function closeM(){$("#modal").replaceChildren()}
+function openM(...c){const ov=h("div",{class:"ov",onmousedown:e=>{if(e.target===ov)closeM()}},h("div",{class:"modal"},c));$("#modal").replaceChildren(ov)}
+
+function openDetail(id){const o=O.find(x=>x.id===id);if(!o)return;
+openM(h("div",{class:"row"},h("h2",{style:"margin:0;font-size:18px"},tName(o.teacherId)),h("span",{class:"tag"},o.type)),
+h("p",{class:"small mute"},fmt(o.date)+" · Observer: "+oName(o)+" · "+[o.cls,o.topic].filter(Boolean).join(" · ")),
+o.objective&&h("div",null,h("label",null,"Lesson objective as set"),h("div",null,o.objective)),
+h("h2",null,"Ratings"),ITEMS.map(([k,l])=>{const r=(o.ratings||{})[k];return h("div",{class:"rl"},h("span",null,l),h("span",{class:"tag"+(r?"":" off")},r?LB[r]:"Not rated"))}),
+o.notes&&h("div",null,h("label",null,"Notes"),h("div",{style:"white-space:pre-wrap"},o.notes)),
+o.actionText&&h("div",null,h("label",null,"Follow-up action"),h("div",null,o.actionText),h("div",{style:"margin-top:4px"},actTag(o))),
+h("div",{class:"row",style:"margin-top:16px"},h("button",{class:"btn ghost",onclick:closeM},"Close"),h("span",{class:"hact"},
+confirmBtn("Remove","Confirm remove",async()=>{if(await guard(sb.from("observations").update({deleted:true,deleted_at:new Date().toISOString()}).eq("id",o.id))){closeM();toast("Moved to the Bin. You can restore it there.");load()}}),
+h("button",{class:"btn",onclick:()=>openForm(o)},"Edit"))))}
+
+function openForm(o){const e=!!o;const d=o||{type:TYPES[0],date:today(),ratings:{},teacherId:F.teacher||""};const rat={...(d.ratings||{})};
+const f={type:h("select",null,TYPES.map(t=>h("option",{selected:t===d.type},t))),date:h("input",{type:"date",value:d.date||today()}),
+teacher:h("select",null,h("option",{value:""},"Select teacher…"),T.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(t=>h("option",{value:t.id,selected:t.id===d.teacherId},t.name))),
+observer:h("input",{value:e?oName(o):(me.display_name||U(me.username)),placeholder:"Observer"}),cls:h("input",{value:d.cls||"",placeholder:"e.g. 9C"}),topic:h("input",{value:d.topic||"",placeholder:"Topic"}),
+objective:h("textarea",{placeholder:"The lesson objective as set"}),notes:h("textarea",{placeholder:"Notes"}),
+actionText:h("textarea",{placeholder:"Follow-up action"}),actionDue:h("input",{type:"date",value:d.actionDue||""})};
+f.objective.value=d.objective||"";f.notes.value=d.notes||"";f.actionText.value=d.actionText||"";
+const L=(t,el)=>h("div",null,h("label",null,t),el);
+const rb=ITEMS.map(([k,l])=>{const row=h("div",{class:"opts"});const paint=()=>row.replaceChildren(...LV.map(([v,lab,s])=>h("button",{type:"button",class:"opt"+(rat[k]===v?" s"+s:""),onclick:()=>{if(rat[k]===v)delete rat[k];else rat[k]=v;paint()}},lab)));paint();return h("div",{class:"rt"},h("div",{class:"small t"},l),row)});
+const err=h("div",{class:"err"});
+const save=h("button",{class:"btn",onclick:async()=>{if(!f.teacher.value||!f.date.value){err.textContent="Please choose a teacher and a date.";return}
+const data={tracker,type:f.type.value,date:f.date.value,teacher_id:f.teacher.value,cls:f.cls.value.trim(),topic:f.topic.value.trim(),objective:f.objective.value.trim(),notes:f.notes.value.trim(),ratings:{...rat},
+action_text:f.actionText.value.trim(),action_due:f.actionDue.value||null,observer_label:f.observer.value.trim()};
+save.disabled=true;const q=e?sb.from("observations").update(data).eq("id",d.id):sb.from("observations").insert(data);
+if(await guard(q)){closeM();load()}else save.disabled=false}},e?"Save changes":"Save observation");
+openM(h("h2",{style:"margin:0;font-size:18px"},(e?"Edit observation":"New observation")+" · "+U(tracker)),
+h("div",{class:"two"},L("Type",f.type),L("Date",f.date),L("Teacher",f.teacher),L("Observer",f.observer),L("Class",f.cls),L("Topic",f.topic)),
+L("Lesson objective (as set)",f.objective),h("h2",null,"Ratings"),rb,L("Notes",f.notes),h("h2",null,"Follow-up action"),
+h("div",{class:"two"},L("Action",f.actionText),L("Due date",f.actionDue)),err,
+h("div",{class:"row",style:"margin-top:14px"},h("button",{class:"btn ghost",onclick:closeM},"Cancel"),save))}
+
+// ---------- sign in ----------
+function showLogin(msg){me=null;if(chan){sb.removeChannel(chan);chan=null}$("#hdr").hidden=true;$("#nav").hidden=true;closeM();
+let setup=false;const box=h("div",{class:"login card"});
+const paint=()=>{const u=h("input",{placeholder:"Username",autocomplete:"username",autocapitalize:"characters"}),p=h("input",{type:"password",placeholder:setup?"Choose a password (8+ characters)":"Password",autocomplete:setup?"new-password":"current-password"}),
+p2=setup&&h("input",{type:"password",placeholder:"Type the password again",autocomplete:"new-password"}),err=h("div",{class:"err"},msg||"");msg="";
+const go=h("button",{class:"btn",style:"width:100%;margin-top:12px",onclick:async()=>{const un=u.value.trim().toLowerCase();err.textContent="";
+if(!un||!p.value){err.textContent="Enter your username and password.";return}
+if(setup){if(p.value.length<8){err.textContent="Use at least 8 characters.";return}if(p.value!==p2.value){err.textContent="The passwords don't match.";return}}
+go.disabled=true;const email=un+"@"+EMAIL_DOMAIN;
+if(setup){const st=await sb.rpc("username_status",{u:un});
+if(!st.error&&st.data==="unknown"){err.textContent="That username hasn't been set up. Ask an admin to add you.";go.disabled=false;return}
+if(!st.error&&st.data==="claimed"){err.textContent="That username already has a password. Sign in instead, or ask an admin to reset it.";go.disabled=false;return}
+const r=await sb.auth.signUp({email,password:p.value});
+if(r.error){err.textContent="Couldn't set the password: "+r.error.message;go.disabled=false;return}
+if(!r.data.session){const r2=await sb.auth.signInWithPassword({email,password:p.value});if(r2.error){err.textContent="Password set, but sign-in failed: "+r2.error.message+". (Admin: check email confirmation is turned off in Supabase.)";go.disabled=false;return}}}
+else{const r=await sb.auth.signInWithPassword({email,password:p.value});if(r.error){err.textContent=/invalid/i.test(r.error.message)?"Username or password not recognised.":r.error.message;go.disabled=false;return}}
+await start()}},setup?"Set password and sign in":"Sign in");
+[u,p,p2].filter(Boolean).forEach(x=>x.onkeydown=e=>{if(e.key==="Enter")go.click()});
+box.replaceChildren(h("h1",null,"Observation Tracker"),h("p",{class:"small mute",style:"margin-top:4px"},setup?"First time here? Choose your password.":"Sign in with your staff username."),
+L2("Username",u),L2("Password",p),p2&&L2("Confirm password",p2),err,go,
+h("p",{class:"small",style:"text-align:center;margin:14px 0 0"},h("button",{class:"linkish",onclick:()=>{setup=!setup;paint()}},setup?"Back to sign in":"First time? Set your password")));setTimeout(()=>u.focus(),0)};
+const L2=(t,el)=>h("div",null,h("label",null,t),el);
+paint();$("#app").replaceChildren(box)}
+
+async function start(){const {data}=await sb.auth.getSession();if(!data.session){showLogin();return}
+const uid=data.session.user.id;const r=await sb.from("staff").select("*").eq("user_id",uid).maybeSingle();
+if(r.error||!r.data){await sb.auth.signOut();showLogin("Your account isn't set up for this tracker. Ask an admin.");return}
+me=r.data;const ks=myTrackers();
+if(!ks.length&&!me.is_admin){await sb.auth.signOut();showLogin("You don't have access to any tracker yet. Ask an admin.");return}
+let saved=null;try{saved=localStorage.getItem("obsTracker")}catch(e){}
+tracker=ks.includes(saved)?saved:(ks[0]||"hof");if(!ks.length)view="staff";
+subscribe();draw();await load()}
+
+(function init(){const c=window.APP_CONFIG||{};
+if(!window.supabase||!c.SUPABASE_URL||/YOUR-/.test(c.SUPABASE_URL+c.SUPABASE_ANON_KEY)){$("#app").replaceChildren(h("div",{class:"card"},h("p",{class:"t"},"Not connected yet"),h("p",{class:"mute"},"Put your Supabase URL and anon key into config.js, then reload.")));return}
+sb=window.supabase.createClient(c.SUPABASE_URL,c.SUPABASE_ANON_KEY);
+sb.auth.onAuthStateChange(ev=>{if(ev==="SIGNED_OUT")showLogin()});
+start()})();
+</script>
+</body>
+</html>
