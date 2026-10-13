@@ -70,7 +70,9 @@ h2{font-size:15px;margin:18px 0 8px}
 <script>
 const TRACKERS={hof:"HOF Observation Tracker",slt:"SLT Teacher Observation Tracker"};
 const EMAIL_DOMAIN="staff.obs-tracker.app";
-const TYPES=["Lesson observation","Booklook","Learning walk"];
+// Observation types offered in each tracker (HOF can't record lesson observations)
+const TYPES_BY_TRACKER={hof:["Booklook","Learning walk","Assessment meeting"],slt:["Lesson observation","Booklook","Learning walk","Assessment meeting"]};
+const trackerTypes=()=>TYPES_BY_TRACKER[tracker]||TYPES_BY_TRACKER.hof;
 const ITEMS=[["objective","Lesson objective"],["sequence","Clear curriculum sequence showing progress in knowledge or skill"],["marking","Evidence of marking and feedback"],["adapt","Adapt teaching appropriately"],["literacy","Reading and literacy promoted"]];
 const LV=[["exceptional","Exceptional standard",4],["strong","Strong standard",3],["expected","Expected standard",2],["attention","Needs attention, urgent improvement",1]];
 const SC=Object.fromEntries(LV.map(l=>[l[0],l[2]]));const LB=Object.fromEntries(LV.map(l=>[l[0],l[1]]));
@@ -129,7 +131,7 @@ $("#app").replaceChildren(view==="obs"?vObs():view==="teachers"?vTeachers():view
 
 function vObs(){const w=h("div");const sel=(k,opts,ph)=>h("select",{onchange:e=>{F[k]=e.target.value;draw()}},h("option",{value:""},ph),opts.map(([v,l])=>h("option",{value:v,selected:F[k]===v},l)));
 const q=h("input",{placeholder:"Search class, topic, notes…",value:F.q,oninput:e=>{F.q=e.target.value;clearTimeout(q._t);q._t=setTimeout(()=>{const p=e.target.selectionStart;draw();const n=$("#app input");if(n){n.focus();n.setSelectionRange(p,p)}},250)}});
-w.append(h("div",{class:"bar"},q,sel("type",TYPES.map(t=>[t,t]),"All types"),sel("teacher",T.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(t=>[t.id,t.name]),"All teachers"),h("button",{class:"btn",onclick:()=>openForm()},"+ New observation")));
+w.append(h("div",{class:"bar"},q,sel("type",[...new Set(trackerTypes().concat(O.map(o=>o.type).filter(Boolean)))].map(t=>[t,t]),"All types"),sel("teacher",T.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(t=>[t.id,t.name]),"All teachers"),h("button",{class:"btn",onclick:()=>openForm()},"+ New observation")));
 const ql=F.q.toLowerCase();
 const list=O.filter(o=>(!F.type||o.type===F.type)&&(!F.teacher||o.teacherId===F.teacher)&&(!ql||[o.cls,o.topic,o.notes,o.objective,tName(o.teacherId),o.actionText,oName(o)].join(" ").toLowerCase().includes(ql))).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
 if(!list.length)w.append(h("p",{class:"mute"},O.length?"No observations match those filters.":"No observations yet. Add a teacher, then record the first observation."));
@@ -229,8 +231,10 @@ h("div",{class:"row",style:"margin-top:16px"},h("button",{class:"btn ghost",oncl
 confirmBtn("Remove","Confirm remove",async()=>{if(await guard(sb.from("observations").update({deleted:true,deleted_at:new Date().toISOString()}).eq("id",o.id))){closeM();toast("Moved to the Bin. You can restore it there.");load()}}),
 h("button",{class:"btn",onclick:()=>openForm(o)},"Edit"))))}
 
-function openForm(o){const e=!!o;const d=o||{type:TYPES[0],date:today(),ratings:{},teacherId:F.teacher||""};const rat={...(d.ratings||{})};
-const f={type:h("select",null,TYPES.map(t=>h("option",{selected:t===d.type},t))),date:h("input",{type:"date",value:d.date||today()}),
+function openForm(o){const e=!!o;const d=o||{type:trackerTypes()[0],date:today(),ratings:{},teacherId:F.teacher||""};const rat={...(d.ratings||{})};
+// When editing an older record whose type is no longer offered here, keep its type available so it isn't changed by accident
+const typeOpts=trackerTypes().includes(d.type)||!d.type?trackerTypes():[d.type].concat(trackerTypes());
+const f={type:h("select",null,typeOpts.map(t=>h("option",{selected:t===d.type},t))),date:h("input",{type:"date",value:d.date||today()}),
 teacher:h("select",null,h("option",{value:""},"Select teacher…"),T.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(t=>h("option",{value:t.id,selected:t.id===d.teacherId},t.name))),
 observer:h("input",{value:e?oName(o):(me.display_name||U(me.username)),placeholder:"Observer"}),cls:h("input",{value:d.cls||"",placeholder:"e.g. 9C"}),topic:h("input",{value:d.topic||"",placeholder:"Topic"}),
 objective:h("textarea",{placeholder:"The lesson objective as set"}),notes:h("textarea",{placeholder:"Notes"}),
