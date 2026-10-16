@@ -68,10 +68,10 @@ h2{font-size:15px;margin:18px 0 8px}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>
 <script>
-const TRACKERS={hof:"HOF Observation Tracker",slt:"SLT Teacher Observation Tracker"};
+const TRACKERS={hof:"HOF Observation Tracker",slt:"SLT Teacher Observation Tracker",sen:"SEN Observation Tracker"};
 const EMAIL_DOMAIN="staff.obs-tracker.app";
 // Observation types offered in each tracker (HOF can't record lesson observations)
-const TYPES_BY_TRACKER={hof:["Booklook","Learning walk","Assessment meeting"],slt:["Lesson observation","Booklook","Learning walk","Assessment meeting"]};
+const TYPES_BY_TRACKER={hof:["Booklook","Learning walk","Assessment meeting"],slt:["Lesson observation","Booklook","Learning walk","Assessment meeting"],sen:["Lesson observation","Booklook","Learning walk","Assessment meeting"]};
 const trackerTypes=()=>TYPES_BY_TRACKER[tracker]||TYPES_BY_TRACKER.hof;
 const ITEMS=[["objective","Lesson objective"],["sequence","Clear curriculum sequence showing progress in knowledge or skill"],["marking","Evidence of marking and feedback"],["adapt","Adapt teaching appropriately"],["literacy","Reading and literacy promoted"]];
 const LV=[["exceptional","Exceptional standard",4],["strong","Strong standard",3],["expected","Expected standard",2],["attention","Needs attention, urgent improvement",1]];
@@ -86,7 +86,7 @@ function h(t,a,...c){const e=document.createElement(t);for(const k in a||{}){con
 c.flat(9).forEach(x=>{if(x==null||x===false)return;e.append(x.nodeType?x:document.createTextNode(x))});return e}
 function toast(m){document.querySelectorAll(".toast").forEach(x=>x.remove());const t=h("div",{class:"toast"},m);document.body.append(t);setTimeout(()=>t.remove(),3800)}
 const U=s=>(s||"").toUpperCase();
-const myTrackers=()=>me?["hof","slt"].filter(k=>k==="hof"?me.can_hof:me.can_slt):[];
+const myTrackers=()=>me?Object.keys(TRACKERS).filter(k=>me["can_"+k]):[];
 
 // Every database write goes through here so errors are always shown.
 async function guard(p){try{const r=await p;if(r&&r.error)throw r.error;return true}catch(e){const m=(e&&e.message)||"try again";
@@ -145,17 +145,17 @@ function vTeachers(){const w=h("div");
 const n=h("input",{placeholder:"Teacher name"}),s=h("input",{placeholder:"Subject / phase (optional)"});
 w.append(h("div",{class:"bar"},n,s,h("button",{class:"btn",onclick:async()=>{if(!n.value.trim())return;if(await guard(sb.from("teachers").insert({tracker,name:n.value.trim(),subject:s.value.trim()}))){n.value="";s.value="";load()}}},"Add teacher")));
 const ta=h("textarea",{placeholder:"Paste several teacher names, one per line (optional subject after a comma)"});
-const other=myTrackers().find(k=>k!==tracker);
+const others=myTrackers().filter(k=>k!==tracker);
 w.append(h("details",{class:"card"},h("summary",{class:"t",style:"cursor:pointer"},"Add several teachers at once"),ta,h("div",{class:"row",style:"margin-top:8px;justify-content:flex-start"},
 h("button",{class:"btn",onclick:async()=>{const have=new Set(T.concat(TB).map(t=>(t.name||"").trim().toLowerCase()));
 const rows=ta.value.split(/\n/).map(x=>x.trim()).filter(Boolean).map(x=>{const i=x.indexOf(",");return i<0?[x,""]:[x.slice(0,i).trim(),x.slice(i+1).trim()]}).filter(r=>r[0]&&!have.has(r[0].toLowerCase()));
 const seen=new Set();const uniq=rows.filter(r=>{const k=r[0].toLowerCase();if(seen.has(k))return false;seen.add(k);return true});
 if(!uniq.length){toast("No new names to add");return}
 if(await guard(sb.from("teachers").insert(uniq.map(r=>({tracker,name:r[0],subject:r[1]}))))){ta.value="";toast(uniq.length+" teacher"+(uniq.length===1?"":"s")+" added");load()}}},"Add all"),
-other&&h("button",{class:"btn ghost",onclick:async()=>{const r=await sb.from("teachers").select("name,subject").eq("tracker",other).eq("deleted",false);if(r.error){toast("Couldn't read the other list");return}
+others.map(other=>h("button",{class:"btn ghost",onclick:async()=>{const r=await sb.from("teachers").select("name,subject").eq("tracker",other).eq("deleted",false);if(r.error){toast("Couldn't read the other list");return}
 const have=new Set(T.concat(TB).map(t=>(t.name||"").trim().toLowerCase()));const add=r.data.filter(x=>!have.has((x.name||"").trim().toLowerCase()));
 if(!add.length){toast("Everyone from the "+U(other)+" list is already here");return}
-if(await guard(sb.from("teachers").insert(add.map(x=>({tracker,name:x.name,subject:x.subject})))))(toast(add.length+" teacher"+(add.length===1?"":"s")+" copied"),load())}},"Copy teacher list from "+U(other)))));
+if(await guard(sb.from("teachers").insert(add.map(x=>({tracker,name:x.name,subject:x.subject})))))(toast(add.length+" teacher"+(add.length===1?"":"s")+" copied"),load())}},"Copy teacher list from "+U(other))))));
 if(!T.length)w.append(h("p",{class:"mute"},"No teachers yet."));
 const g=h("div",{class:"grid"});T.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).forEach(t=>{const os=O.filter(o=>o.teacherId===t.id).sort((a,b)=>(b.date||"").localeCompare(a.date||""));
 const sc=os.map(avg).filter(x=>x!=null);const m=sc.length?sc.reduce((a,b)=>a+b,0)/sc.length:null;const open=os.filter(o=>o.actionText&&!o.actionDone).length;
@@ -191,12 +191,12 @@ function vStaff(){const w=h("div");
 w.append(h("p",{class:"small mute"},"Add a username here, then tell that person to open the site and choose \"First time? Set your password\". Untick a tracker to remove someone's access straight away."));
 const un=h("input",{placeholder:"Username, e.g. BBO"}),dn=h("input",{placeholder:"Name shown on observations (optional)"});
 const ch=(l,v)=>{const i=h("input",{type:"checkbox",checked:v});return [i,h("label",null,i,l)]};
-const [hof,hofL]=ch("HOF",true),[slt,sltL]=ch("SLT",false),[adm,admL]=ch("Admin",false);const err=h("div",{class:"err"});
-w.append(h("div",{class:"card"},h("div",{class:"t"},"Add a member of staff"),h("div",{class:"two"},un,dn),h("div",{class:"checks",style:"margin-top:10px"},hofL,sltL,admL,
+const [hof,hofL]=ch("HOF",true),[slt,sltL]=ch("SLT",false),[sen,senL]=ch("SEN",false),[adm,admL]=ch("Admin",false);const err=h("div",{class:"err"});
+w.append(h("div",{class:"card"},h("div",{class:"t"},"Add a member of staff"),h("div",{class:"two"},un,dn),h("div",{class:"checks",style:"margin-top:10px"},hofL,sltL,senL,admL,
 h("button",{class:"btn",onclick:async()=>{const u=un.value.trim().toLowerCase();err.textContent="";
 if(!/^[a-z0-9._-]{2,40}$/.test(u)){err.textContent="Usernames need 2–40 letters or numbers (no spaces).";return}
 if(S.some(s=>s.username===u)){err.textContent="That username already exists.";return}
-if(await guard(sb.from("staff").insert({username:u,display_name:dn.value.trim()||U(u),can_hof:hof.checked,can_slt:slt.checked,is_admin:adm.checked}))){toast(U(u)+" added");load()}}},"Add")),err));
+if(await guard(sb.from("staff").insert({username:u,display_name:dn.value.trim()||U(u),can_hof:hof.checked,can_slt:slt.checked,can_sen:sen.checked,is_admin:adm.checked}))){toast(U(u)+" added");load()}}},"Add")),err));
 const tb=h("div");
 S.forEach(s=>{const self=s.user_id===me.user_id;
 const upd=async(patch,el)=>{if(!(await guard(sb.from("staff").update(patch).eq("username",s.username)))){if(el)el.checked=!el.checked}load()};
@@ -204,7 +204,7 @@ const box=(l,k)=>{const i=h("input",{type:"checkbox",checked:s[k],disabled:self&
 const nm=h("input",{value:s.display_name,style:"max-width:220px",onchange:e=>upd({display_name:e.target.value.trim()||U(s.username)})});
 tb.append(h("div",{class:"card"},h("div",{class:"row"},h("div",null,h("span",{class:"t"},U(s.username)),self&&h("span",{class:"small mute"}," (you)")," ",
 h("span",{class:"tag "+(s.user_id?"ok":"warn")},s.user_id?"Password set":"Waiting for first login")),nm),
-h("div",{class:"row",style:"margin-top:8px"},h("div",{class:"checks"},box("HOF","can_hof"),box("SLT","can_slt"),box("Admin","is_admin")),
+h("div",{class:"row",style:"margin-top:8px"},h("div",{class:"checks"},box("HOF","can_hof"),box("SLT","can_slt"),box("SEN","can_sen"),box("Admin","is_admin")),
 !self&&h("div",{class:"hact"},s.user_id&&confirmBtn("Reset password","Confirm reset",async()=>{if(await guard(sb.rpc("admin_reset_login",{u:s.username}))){toast(U(s.username)+" can now set a new password");load()}}),
 confirmBtn("Remove","Confirm remove",async()=>{if(await guard(sb.rpc("admin_remove_staff",{u:s.username}))){toast(U(s.username)+" removed");load()}})))))});
 w.append(h("h2",null,"Staff ("+S.length+")"),tb);return w}
