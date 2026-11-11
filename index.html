@@ -77,7 +77,7 @@ const ITEMS=[["objective","Lesson objective"],["sequence","Clear curriculum sequ
 const LV=[["exceptional","Exceptional standard",4],["strong","Strong standard",3],["expected","Expected standard",2],["attention","Needs attention, urgent improvement",1]];
 const SC=Object.fromEntries(LV.map(l=>[l[0],l[2]]));const LB=Object.fromEntries(LV.map(l=>[l[0],l[1]]));
 
-let sb=null,me=null,tracker="hof",T=[],TB=[],O=[],B=[],S=[],view="obs",F={type:"",teacher:"",q:""},chan=null,loadSeq=0,loadTimer=null;
+let sb=null,me=null,tracker="hof",T=[],TB=[],O=[],B=[],S=[],R=[],view="obs",F={type:"",teacher:"",q:""},chan=null,loadSeq=0,loadTimer=null;
 
 const $=s=>document.querySelector(s);
 const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
@@ -110,13 +110,18 @@ if(t.error||o.error){toast("Couldn't load: "+((t.error||o.error).message));retur
 T=t.data.filter(x=>!x.deleted);TB=t.data.filter(x=>x.deleted);
 const all=o.data.map(fromObs);O=all.filter(x=>!x.deleted);B=all.filter(x=>x.deleted);
 if(me.is_admin){const s=await sb.from("staff").select("*").order("username");if(seq!==loadSeq)return;if(!s.error)S=s.data}
+if(seesRefs()){const r=await sb.from("referrals").select("*").order("created_at",{ascending:false});if(seq!==loadSeq)return;if(!r.error)R=r.data}else R=[];
 draw()}
+// SEN referrals: anyone in SEN can submit; only staff with "See referrals" can read them
+const seesRefs=()=>tracker==="sen"&&!!(me&&me.can_view_referrals);
 const soon=()=>{clearTimeout(loadTimer);loadTimer=setTimeout(load,300)};
 function subscribe(){if(chan)sb.removeChannel(chan);
 chan=sb.channel("obs-"+tracker).on("postgres_changes",{event:"*",schema:"public",table:"teachers",filter:"tracker=eq."+tracker},soon)
-.on("postgres_changes",{event:"*",schema:"public",table:"observations",filter:"tracker=eq."+tracker},soon).subscribe()}
+.on("postgres_changes",{event:"*",schema:"public",table:"observations",filter:"tracker=eq."+tracker},soon);
+if(seesRefs())chan=chan.on("postgres_changes",{event:"*",schema:"public",table:"referrals"},soon);
+chan.subscribe()}
 async function switchTracker(k){tracker=k;try{localStorage.setItem("obsTracker",k)}catch(e){}F={type:"",teacher:"",q:""};if(view==="staff"&&!me.is_admin)view="obs";
-T=[];TB=[];O=[];B=[];draw();subscribe();await load()}
+T=[];TB=[];O=[];B=[];R=[];draw();subscribe();await load()}
 
 // ---------- layout ----------
 function drawHeader(){const ks=myTrackers();$("#hdr").hidden=false;$("#nav").hidden=false;
@@ -125,9 +130,10 @@ $("#who").textContent="Signed in as "+(me.display_name||U(me.username));
 $("#hact").replaceChildren(h("button",{class:"btn ghost",onclick:exportCsv},"Export CSV"),h("button",{class:"btn ghost",onclick:()=>sb.auth.signOut()},"Sign out"));
 document.title=TRACKERS[tracker]}
 function draw(){if(!me)return;drawHeader();
-const tabs=[["obs","Observations"],["teachers","Teachers"],["actions","Actions"],["bin","Bin ("+(B.length+TB.length)+")"]].concat(me.is_admin?[["staff","Staff & access"]]:[]);
+if((view==="referrals"&&tracker!=="sen")||(view==="submitted"&&!seesRefs()))view="obs";
+const tabs=[["obs","Observations"],["teachers","Teachers"],["actions","Actions"],["bin","Bin ("+(B.length+TB.length)+")"]].concat(tracker==="sen"?[["referrals","Referrals"]]:[],seesRefs()?[["submitted","Submitted referrals ("+R.length+")"]]:[],me.is_admin?[["staff","Staff & access"]]:[]);
 $("#nav").replaceChildren(...tabs.map(([k,l])=>h("button",{class:view===k?"on":"",onclick:()=>{view=k;draw()}},l)));
-$("#app").replaceChildren(view==="obs"?vObs():view==="teachers"?vTeachers():view==="bin"?vBin():view==="staff"?vStaff():vActions())}
+$("#app").replaceChildren(view==="obs"?vObs():view==="teachers"?vTeachers():view==="bin"?vBin():view==="staff"?vStaff():view==="referrals"?vReferral():view==="submitted"?vSubmitted():vActions())}
 
 function vObs(){const w=h("div");const sel=(k,opts,ph)=>h("select",{onchange:e=>{F[k]=e.target.value;draw()}},h("option",{value:""},ph),opts.map(([v,l])=>h("option",{value:v,selected:F[k]===v},l)));
 const q=h("input",{placeholder:"Search class, topic, notes…",value:F.q,oninput:e=>{F.q=e.target.value;clearTimeout(q._t);q._t=setTimeout(()=>{const p=e.target.selectionStart;draw();const n=$("#app input");if(n){n.focus();n.setSelectionRange(p,p)}},250)}});
@@ -191,12 +197,12 @@ function vStaff(){const w=h("div");
 w.append(h("p",{class:"small mute"},"Add a username here, then tell that person to open the site and choose \"First time? Set your password\". Untick a tracker to remove someone's access straight away."));
 const un=h("input",{placeholder:"Username, e.g. BBO"}),dn=h("input",{placeholder:"Name shown on observations (optional)"});
 const ch=(l,v)=>{const i=h("input",{type:"checkbox",checked:v});return [i,h("label",null,i,l)]};
-const [hof,hofL]=ch("HOF",true),[slt,sltL]=ch("SLT",false),[sen,senL]=ch("SEN",false),[adm,admL]=ch("Admin",false);const err=h("div",{class:"err"});
-w.append(h("div",{class:"card"},h("div",{class:"t"},"Add a member of staff"),h("div",{class:"two"},un,dn),h("div",{class:"checks",style:"margin-top:10px"},hofL,sltL,senL,admL,
+const [hof,hofL]=ch("HOF",true),[slt,sltL]=ch("SLT",false),[sen,senL]=ch("SEN",false),[ref,refL]=ch("See referrals",false),[adm,admL]=ch("Admin",false);const err=h("div",{class:"err"});
+w.append(h("div",{class:"card"},h("div",{class:"t"},"Add a member of staff"),h("div",{class:"two"},un,dn),h("div",{class:"checks",style:"margin-top:10px"},hofL,sltL,senL,refL,admL,
 h("button",{class:"btn",onclick:async()=>{const u=un.value.trim().toLowerCase();err.textContent="";
 if(!/^[a-z0-9._-]{2,40}$/.test(u)){err.textContent="Usernames need 2–40 letters or numbers (no spaces).";return}
 if(S.some(s=>s.username===u)){err.textContent="That username already exists.";return}
-if(await guard(sb.from("staff").insert({username:u,display_name:dn.value.trim()||U(u),can_hof:hof.checked,can_slt:slt.checked,can_sen:sen.checked,is_admin:adm.checked}))){toast(U(u)+" added");load()}}},"Add")),err));
+if(await guard(sb.from("staff").insert({username:u,display_name:dn.value.trim()||U(u),can_hof:hof.checked,can_slt:slt.checked,can_sen:sen.checked,can_view_referrals:ref.checked,is_admin:adm.checked}))){toast(U(u)+" added");load()}}},"Add")),err));
 const tb=h("div");
 S.forEach(s=>{const self=s.user_id===me.user_id;
 const upd=async(patch,el)=>{if(!(await guard(sb.from("staff").update(patch).eq("username",s.username)))){if(el)el.checked=!el.checked}load()};
@@ -204,11 +210,23 @@ const box=(l,k)=>{const i=h("input",{type:"checkbox",checked:s[k],disabled:self&
 const nm=h("input",{value:s.display_name,style:"max-width:220px",onchange:e=>upd({display_name:e.target.value.trim()||U(s.username)})});
 tb.append(h("div",{class:"card"},h("div",{class:"row"},h("div",null,h("span",{class:"t"},U(s.username)),self&&h("span",{class:"small mute"}," (you)")," ",
 h("span",{class:"tag "+(s.user_id?"ok":"warn")},s.user_id?"Password set":"Waiting for first login")),nm),
-h("div",{class:"row",style:"margin-top:8px"},h("div",{class:"checks"},box("HOF","can_hof"),box("SLT","can_slt"),box("SEN","can_sen"),box("Admin","is_admin")),
+h("div",{class:"row",style:"margin-top:8px"},h("div",{class:"checks"},box("HOF","can_hof"),box("SLT","can_slt"),box("SEN","can_sen"),box("See referrals","can_view_referrals"),box("Admin","is_admin")),
 !self&&h("div",{class:"hact"},s.user_id&&confirmBtn("Reset password","Confirm reset",async()=>{if(await guard(sb.rpc("admin_reset_login",{u:s.username}))){toast(U(s.username)+" can now set a new password");load()}}),
 confirmBtn("Remove","Confirm remove",async()=>{if(await guard(sb.rpc("admin_remove_staff",{u:s.username}))){toast(U(s.username)+" removed");load()}})))))});
 w.append(h("h2",null,"Staff ("+S.length+")"),tb);return w}
 
+
+// ---------- SEN referrals ----------
+const fmtWhen=s=>{const d=new Date(s);return isNaN(d)?"":d.toLocaleString("en-GB",{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})};
+function vReferral(){const ta=h("textarea",{placeholder:"Describe the referral…",style:"min-height:160px"}),err=h("div",{class:"err"});
+const send=h("button",{class:"btn",style:"margin-top:10px",onclick:async()=>{err.textContent="";if(!ta.value.trim()){err.textContent="Please write something before submitting.";return}
+send.disabled=true;if(await guard(sb.from("referrals").insert({comment:ta.value.trim()}))){ta.value="";toast("Referral submitted");if(seesRefs())load()}send.disabled=false}},"Submit referral");
+return h("div",{class:"card"},h("div",{class:"t"},"New SEN referral"),h("p",{class:"small mute",style:"margin:4px 0 0"},"Submitted referrals are private: only designated staff can read them. Your name and the date are added automatically."),h("label",null,"Comment"),ta,err,send)}
+function vSubmitted(){const w=h("div");
+if(!R.length){w.append(h("p",{class:"mute"},"No referrals have been submitted yet."));return w}
+R.forEach(r=>w.append(h("div",{class:"card"},h("div",{class:"row"},h("span",{class:"small mute"},"From "+(r.submitted_by||"a colleague")+" · "+fmtWhen(r.created_at)),
+confirmBtn("Delete","Confirm delete",async()=>{if(await guard(sb.from("referrals").delete().eq("id",r.id))){toast("Referral deleted");load()}})),
+h("div",{style:"white-space:pre-wrap;margin-top:8px"},r.comment))));return w}
 // ---------- export ----------
 function csvCell(v){v=v==null?"":String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function exportCsv(){const rows=[["Tracker","Type","Date","Teacher","Observer","Class","Topic","Lesson objective as set",...ITEMS.map(i=>i[1]),"Notes","Follow-up action","Action due","Action done","Removed"]];
