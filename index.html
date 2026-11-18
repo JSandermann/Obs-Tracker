@@ -135,7 +135,9 @@ const tabs=[["obs","Observations"],["teachers","Teachers"],["actions","Actions"]
 $("#nav").replaceChildren(...tabs.map(([k,l])=>h("button",{class:view===k?"on":"",onclick:()=>{view=k;draw()}},l)));
 $("#app").replaceChildren(view==="obs"?vObs():view==="teachers"?vTeachers():view==="bin"?vBin():view==="staff"?vStaff():view==="referrals"?vReferral():view==="submitted"?vSubmitted():vActions())}
 
-function vObs(){const w=h("div");const sel=(k,opts,ph)=>h("select",{onchange:e=>{F[k]=e.target.value;draw()}},h("option",{value:""},ph),opts.map(([v,l])=>h("option",{value:v,selected:F[k]===v},l)));
+// "HOF: own only" staff see only the HOF observations they recorded (enforced by the database)
+const ownOnly=()=>tracker==="hof"&&!!(me&&me.hof_own_only);
+function vObs(){const w=h("div");if(ownOnly())w.append(h("p",{class:"small mute",style:"margin:0 0 10px"},"You can see the HOF observations you have recorded."));const sel=(k,opts,ph)=>h("select",{onchange:e=>{F[k]=e.target.value;draw()}},h("option",{value:""},ph),opts.map(([v,l])=>h("option",{value:v,selected:F[k]===v},l)));
 const q=h("input",{placeholder:"Search class, topic, notes…",value:F.q,oninput:e=>{F.q=e.target.value;clearTimeout(q._t);q._t=setTimeout(()=>{const p=e.target.selectionStart;draw();const n=$("#app input");if(n){n.focus();n.setSelectionRange(p,p)}},250)}});
 w.append(h("div",{class:"bar"},q,sel("type",[...new Set(trackerTypes().concat(O.map(o=>o.type).filter(Boolean)))].map(t=>[t,t]),"All types"),sel("teacher",T.slice().sort((a,b)=>(a.name||"").localeCompare(b.name||"")).map(t=>[t.id,t.name]),"All teachers"),h("button",{class:"btn",onclick:()=>openForm()},"+ New observation")));
 const ql=F.q.toLowerCase();
@@ -171,7 +173,7 @@ h("div",{class:"small",style:"margin-top:8px"},os.length+" observation"+(os.leng
 lvl&&h("div",{class:"small",style:"margin-top:4px"},"Average: ",h("span",{class:"tag "+(lvl[2]===4?"ex":lvl[2]===3?"ok":lvl[2]===1?"bad":"")},lvl[1])),
 open>0&&h("div",{style:"margin-top:6px"},h("span",{class:"tag warn"},open+" open action"+(open===1?"":"s"))),
 h("div",{class:"row",style:"margin-top:10px"},h("button",{class:"btn ghost",onclick:()=>{F={type:"",teacher:t.id,q:""};view="obs";draw()}},"View"),
-!os.length&&confirmBtn("Remove","Confirm remove",async()=>{if(await guard(sb.from("teachers").update({deleted:true,deleted_at:new Date().toISOString()}).eq("id",t.id)))load()}))))});
+!os.length&&!ownOnly()&&confirmBtn("Remove","Confirm remove",async()=>{if(await guard(sb.from("teachers").update({deleted:true,deleted_at:new Date().toISOString()}).eq("id",t.id)))load()}))))});
 w.append(g);return w}
 
 function confirmBtn(label,confirmLabel,fn){return h("button",{class:"btn ghost",onclick:async e=>{const b=e.currentTarget;if(b.dataset.c!=="1"){b.dataset.c="1";b.textContent=confirmLabel;b.classList.add("danger");setTimeout(()=>{if(b.isConnected){b.dataset.c="";b.textContent=label;b.classList.remove("danger")}},4000);return}b.disabled=true;await fn();b.disabled=false}},label)}
@@ -197,12 +199,12 @@ function vStaff(){const w=h("div");
 w.append(h("p",{class:"small mute"},"Add a username here, then tell that person to open the site and choose \"First time? Set your password\". Untick a tracker to remove someone's access straight away."));
 const un=h("input",{placeholder:"Username, e.g. BBO"}),dn=h("input",{placeholder:"Name shown on observations (optional)"});
 const ch=(l,v)=>{const i=h("input",{type:"checkbox",checked:v});return [i,h("label",null,i,l)]};
-const [hof,hofL]=ch("HOF",true),[slt,sltL]=ch("SLT",false),[sen,senL]=ch("SEN",false),[ref,refL]=ch("See referrals",false),[adm,admL]=ch("Admin",false);const err=h("div",{class:"err"});
-w.append(h("div",{class:"card"},h("div",{class:"t"},"Add a member of staff"),h("div",{class:"two"},un,dn),h("div",{class:"checks",style:"margin-top:10px"},hofL,sltL,senL,refL,admL,
+const [hof,hofL]=ch("HOF",true),[slt,sltL]=ch("SLT",false),[sen,senL]=ch("SEN",false),[ref,refL]=ch("See referrals",false),[own,ownL]=ch("HOF: own only",false),[adm,admL]=ch("Admin",false);const err=h("div",{class:"err"});
+w.append(h("div",{class:"card"},h("div",{class:"t"},"Add a member of staff"),h("div",{class:"two"},un,dn),h("div",{class:"checks",style:"margin-top:10px"},hofL,sltL,senL,refL,ownL,admL,
 h("button",{class:"btn",onclick:async()=>{const u=un.value.trim().toLowerCase();err.textContent="";
 if(!/^[a-z0-9._-]{2,40}$/.test(u)){err.textContent="Usernames need 2–40 letters or numbers (no spaces).";return}
 if(S.some(s=>s.username===u)){err.textContent="That username already exists.";return}
-if(await guard(sb.from("staff").insert({username:u,display_name:dn.value.trim()||U(u),can_hof:hof.checked,can_slt:slt.checked,can_sen:sen.checked,can_view_referrals:ref.checked,is_admin:adm.checked}))){toast(U(u)+" added");load()}}},"Add")),err));
+if(await guard(sb.from("staff").insert({username:u,display_name:dn.value.trim()||U(u),can_hof:hof.checked,can_slt:slt.checked,can_sen:sen.checked,can_view_referrals:ref.checked,hof_own_only:own.checked,is_admin:adm.checked}))){toast(U(u)+" added");load()}}},"Add")),err));
 const tb=h("div");
 S.forEach(s=>{const self=s.user_id===me.user_id;
 const upd=async(patch,el)=>{if(!(await guard(sb.from("staff").update(patch).eq("username",s.username)))){if(el)el.checked=!el.checked}load()};
@@ -210,7 +212,7 @@ const box=(l,k)=>{const i=h("input",{type:"checkbox",checked:s[k],disabled:self&
 const nm=h("input",{value:s.display_name,style:"max-width:220px",onchange:e=>upd({display_name:e.target.value.trim()||U(s.username)})});
 tb.append(h("div",{class:"card"},h("div",{class:"row"},h("div",null,h("span",{class:"t"},U(s.username)),self&&h("span",{class:"small mute"}," (you)")," ",
 h("span",{class:"tag "+(s.user_id?"ok":"warn")},s.user_id?"Password set":"Waiting for first login")),nm),
-h("div",{class:"row",style:"margin-top:8px"},h("div",{class:"checks"},box("HOF","can_hof"),box("SLT","can_slt"),box("SEN","can_sen"),box("See referrals","can_view_referrals"),box("Admin","is_admin")),
+h("div",{class:"row",style:"margin-top:8px"},h("div",{class:"checks"},box("HOF","can_hof"),box("SLT","can_slt"),box("SEN","can_sen"),box("See referrals","can_view_referrals"),box("HOF: own only","hof_own_only"),box("Admin","is_admin")),
 !self&&h("div",{class:"hact"},s.user_id&&confirmBtn("Reset password","Confirm reset",async()=>{if(await guard(sb.rpc("admin_reset_login",{u:s.username}))){toast(U(s.username)+" can now set a new password");load()}}),
 confirmBtn("Remove","Confirm remove",async()=>{if(await guard(sb.rpc("admin_remove_staff",{u:s.username}))){toast(U(s.username)+" removed");load()}})))))});
 w.append(h("h2",null,"Staff ("+S.length+")"),tb);return w}
