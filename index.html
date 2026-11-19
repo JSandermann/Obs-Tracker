@@ -74,6 +74,10 @@ const EMAIL_DOMAIN="staff.obs-tracker.app";
 const TYPES_BY_TRACKER={hof:["Booklook","Learning walk","Assessment meeting"],slt:["Lesson observation","Booklook","Learning walk","Assessment meeting"],sen:["Lesson observation","Booklook","Learning walk","Assessment meeting"]};
 const trackerTypes=()=>TYPES_BY_TRACKER[tracker]||TYPES_BY_TRACKER.hof;
 const ITEMS=[["objective","Lesson objective"],["sequence","Clear curriculum sequence showing progress in knowledge or skill"],["marking","Evidence of marking and feedback"],["adapt","Adapt teaching appropriately"],["literacy","Reading and literacy promoted"]];
+// Assessment meetings use a different last question
+const ITEMS_ASSESS=ITEMS.map(it=>it[0]==="literacy"?["baseline","Baseline and work to date on trackable"]:it);
+const itemsFor=type=>type==="Assessment meeting"?ITEMS_ASSESS:ITEMS;
+const ALL_ITEMS=ITEMS.concat(ITEMS_ASSESS.filter(a=>!ITEMS.some(b=>b[0]===a[0])));
 const LV=[["exceptional","Exceptional standard",4],["strong","Strong standard",3],["expected","Expected standard",2],["attention","Needs attention, urgent improvement",1]];
 const SC=Object.fromEntries(LV.map(l=>[l[0],l[2]]));const LB=Object.fromEntries(LV.map(l=>[l[0],l[1]]));
 
@@ -98,7 +102,7 @@ actionText:r.action_text,actionDue:r.action_due||"",actionDone:r.action_done,obs
 const tName=id=>(T.concat(TB).find(t=>t.id===id)||{}).name||"Unknown teacher";
 const oName=o=>o.observerLabel||"A colleague";
 const avg=o=>{const v=Object.values(o.ratings||{}).map(x=>SC[x]).filter(Boolean);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null};
-const strip=o=>h("div",{class:"strip"},ITEMS.map(([k,l])=>{const r=(o.ratings||{})[k];return h("i",{class:r?"l"+SC[r]:"",style:r?null:"background:var(--line)",title:l+": "+(r?LB[r]:"not rated")})}));
+const strip=o=>h("div",{class:"strip"},itemsFor(o.type).map(([k,l])=>{const r=(o.ratings||{})[k];return h("i",{class:r?"l"+SC[r]:"",style:r?null:"background:var(--line)",title:l+": "+(r?LB[r]:"not rated")})}));
 function actTag(o){if(!o.actionText)return null;if(o.actionDone)return h("span",{class:"tag ok"},"Action done");
 if(o.actionDue&&o.actionDue<today())return h("span",{class:"tag bad"},"Overdue · "+fmt(o.actionDue));return h("span",{class:"tag warn"},"Due "+(fmt(o.actionDue)||"no date"))}
 
@@ -231,8 +235,8 @@ confirmBtn("Delete","Confirm delete",async()=>{if(await guard(sb.from("referrals
 h("div",{style:"white-space:pre-wrap;margin-top:8px"},r.comment))));return w}
 // ---------- export ----------
 function csvCell(v){v=v==null?"":String(v);return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
-function exportCsv(){const rows=[["Tracker","Type","Date","Teacher","Observer","Class","Topic","Lesson objective as set",...ITEMS.map(i=>i[1]),"Notes","Follow-up action","Action due","Action done","Removed"]];
-O.concat(B).sort((a,b)=>(a.date||"").localeCompare(b.date||"")).forEach(o=>rows.push([U(tracker),o.type,o.date,tName(o.teacherId),oName(o),o.cls,o.topic,o.objective,...ITEMS.map(([k])=>(o.ratings||{})[k]?LB[o.ratings[k]]:""),o.notes,o.actionText,o.actionDue,o.actionText?(o.actionDone?"Yes":"No"):"",o.deleted?"Yes":""]));
+function exportCsv(){const rows=[["Tracker","Type","Date","Teacher","Observer","Class","Topic","Lesson objective as set",...ALL_ITEMS.map(i=>i[1]),"Notes","Follow-up action","Action due","Action done","Removed"]];
+O.concat(B).sort((a,b)=>(a.date||"").localeCompare(b.date||"")).forEach(o=>rows.push([U(tracker),o.type,o.date,tName(o.teacherId),oName(o),o.cls,o.topic,o.objective,...ALL_ITEMS.map(([k])=>(o.ratings||{})[k]?LB[o.ratings[k]]:""),o.notes,o.actionText,o.actionDue,o.actionText?(o.actionDone?"Yes":"No"):"",o.deleted?"Yes":""]));
 const blob=new Blob(["﻿"+rows.map(r=>r.map(csvCell).join(",")).join("\r\n")],{type:"text/csv;charset=utf-8"});
 const a=h("a",{href:URL.createObjectURL(blob),download:tracker+"-observations-"+today()+".csv"});document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
 
@@ -244,7 +248,7 @@ function openDetail(id){const o=O.find(x=>x.id===id);if(!o)return;
 openM(h("div",{class:"row"},h("h2",{style:"margin:0;font-size:18px"},tName(o.teacherId)),h("span",{class:"tag"},o.type)),
 h("p",{class:"small mute"},fmt(o.date)+" · Observer: "+oName(o)+" · "+[o.cls,o.topic].filter(Boolean).join(" · ")),
 o.objective&&h("div",null,h("label",null,"Lesson objective as set"),h("div",null,o.objective)),
-h("h2",null,"Ratings"),ITEMS.map(([k,l])=>{const r=(o.ratings||{})[k];return h("div",{class:"rl"},h("span",null,l),h("span",{class:"tag"+(r?"":" off")},r?LB[r]:"Not rated"))}),
+h("h2",null,"Ratings"),itemsFor(o.type).map(([k,l])=>{const r=(o.ratings||{})[k];return h("div",{class:"rl"},h("span",null,l),h("span",{class:"tag"+(r?"":" off")},r?LB[r]:"Not rated"))}),
 o.notes&&h("div",null,h("label",null,"Notes"),h("div",{style:"white-space:pre-wrap"},o.notes)),
 o.actionText&&h("div",null,h("label",null,"Follow-up action"),h("div",null,o.actionText),h("div",{style:"margin-top:4px"},actTag(o))),
 h("div",{class:"row",style:"margin-top:16px"},h("button",{class:"btn ghost",onclick:closeM},"Close"),h("span",{class:"hact"},
@@ -261,10 +265,12 @@ objective:h("textarea",{placeholder:"The lesson objective as set"}),notes:h("tex
 actionText:h("textarea",{placeholder:"Follow-up action"}),actionDue:h("input",{type:"date",value:d.actionDue||""})};
 f.objective.value=d.objective||"";f.notes.value=d.notes||"";f.actionText.value=d.actionText||"";
 const L=(t,el)=>h("div",null,h("label",null,t),el);
-const rb=ITEMS.map(([k,l])=>{const row=h("div",{class:"opts"});const paint=()=>row.replaceChildren(...LV.map(([v,lab,s])=>h("button",{type:"button",class:"opt"+(rat[k]===v?" s"+s:""),onclick:()=>{if(rat[k]===v)delete rat[k];else rat[k]=v;paint()}},lab)));paint();return h("div",{class:"rt"},h("div",{class:"small t"},l),row)});
+// Rating questions depend on the type; redraw them when the type changes
+const rb=h("div");const paintRatings=()=>rb.replaceChildren(...itemsFor(f.type.value).map(([k,l])=>{const row=h("div",{class:"opts"});const paint=()=>row.replaceChildren(...LV.map(([v,lab,s])=>h("button",{type:"button",class:"opt"+(rat[k]===v?" s"+s:""),onclick:()=>{if(rat[k]===v)delete rat[k];else rat[k]=v;paint()}},lab)));paint();return h("div",{class:"rt"},h("div",{class:"small t"},l),row)}));
+paintRatings();f.type.onchange=paintRatings;
 const err=h("div",{class:"err"});
 const save=h("button",{class:"btn",onclick:async()=>{if(!f.teacher.value||!f.date.value){err.textContent="Please choose a teacher and a date.";return}
-const data={tracker,type:f.type.value,date:f.date.value,teacher_id:f.teacher.value,cls:f.cls.value.trim(),topic:f.topic.value.trim(),objective:f.objective.value.trim(),notes:f.notes.value.trim(),ratings:{...rat},
+const data={tracker,type:f.type.value,date:f.date.value,teacher_id:f.teacher.value,cls:f.cls.value.trim(),topic:f.topic.value.trim(),objective:f.objective.value.trim(),notes:f.notes.value.trim(),ratings:Object.fromEntries(itemsFor(f.type.value).filter(([k])=>rat[k]).map(([k])=>[k,rat[k]])),
 action_text:f.actionText.value.trim(),action_due:f.actionDue.value||null,observer_label:f.observer.value.trim()};
 save.disabled=true;const q=e?sb.from("observations").update(data).eq("id",d.id):sb.from("observations").insert(data);
 if(await guard(q)){closeM();load()}else save.disabled=false}},e?"Save changes":"Save observation");
